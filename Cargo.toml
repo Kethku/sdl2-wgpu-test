@@ -1,0 +1,17 @@
+[package]
+name = "sdl2-wgpu-lyon"
+version = "0.1.0"
+authors = ["keith <keith@the-simmons.net>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+wgpu = "0.4.0"
+lyon = "0.15.6"
+wgpu_glyph = "0.7.0"
+
+[dependencies.sdl2]
+git = "https://github.com/Rust-SDL2/rust-sdl2"
+default-features = false
+features = ["bundled", "static-link", "raw-window-handle"]
