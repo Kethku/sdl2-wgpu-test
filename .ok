@@ -1,0 +1,3 @@
+vert: glslangValidator -V ./src/shader.vert.glsl -o ./src/shader.vert.spv
+frag: glslangValidator -V ./src/shader.frag.glsl -o ./src/shader.frag.spv
+shaders: ok vert; ok frag

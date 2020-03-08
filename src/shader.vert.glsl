@@ -1,15 +1,16 @@
 #version 450
 
-out gl_PerVertex {
-    vec4 gl_Position;
+layout(location = 0) in vec2 a_Position;
+layout(location = 1) in vec2 a_Dimensions;
+layout(location = 2) in vec2 a_VertexPosition;
+
+layout(set = 0, binding = 0) uniform Globals {
+    vec2 u_GridDimensions;
+    vec2 u_FontSize;
 };
 
-const vec2 positions[3] = vec2[3](
-    vec2(0.0, -0.5),
-    vec2(0.5, 0.5),
-    vec2(-0.5, 0.5)
-);
-
 void main() {
-    gl_Position = vec4(positions[gl_VertexIndex], 0.0, 1.0);
+    gl_Position = vec4(a_Position * a_Dimensions * a_VertexPosition / (u_GridDimensions * u_FontSize), 0, 0);
+    gl_Position.x = -gl_Position.x;
+    gl_Position.y = -gl_Position.y;
 }
