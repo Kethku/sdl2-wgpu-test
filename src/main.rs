@@ -17,8 +17,40 @@ use wgpu::vertex_attr_array;
 #[repr(C)]
 #[derive(Clone, Copy, AsBytes, FromBytes)]
 struct Uniforms {
-    grid_dimensions: [f32; 2],
-    font_size: [f32; 2]
+    font_size: [f32; 2],
+    window_size: [f32; 2]
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, AsBytes, FromBytes)]
+struct Vertex {
+    vertex_position: [f32; 2]
+}
+
+impl Vertex {
+    pub fn new(x: f32, y: f32) -> Vertex {
+        Vertex {
+            vertex_position: [x, y]
+        }
+    }
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, AsBytes, FromBytes)]
+struct Instance {
+    position: [f32; 2],
+    dimensions: [f32; 2],
+    color: [f32; 3]
+}
+
+impl Instance {
+    pub fn new(x: f32, y: f32, width: f32, height: f32, r: f32, g: f32, b: f32) -> Instance {
+        Instance {
+            position: [x, y],
+            dimensions: [width, height],
+            color: [r, g, b]
+        }
+    }
 }
 
 fn create_swap_chain(width: u32, height: u32, surface: & Surface, device: &Device) -> SwapChain {
@@ -60,14 +92,14 @@ fn main() {
 
     // Static Data
     let vertex_buffer_data = [
-        0.0, 0.0, // Top Left
-        1.0,  0.0, // Top Right
-        1.0,  1.0, // Bottom Right
-        0.0, 1.0 // Bottom Left
+        Vertex::new(0.0, 0.0), // Top Left
+        Vertex::new(1.0, 0.0), // Top Right
+        Vertex::new(1.0, 1.0), // Bottom Right
+        Vertex::new(0.0, 1.0) // Bottom Left
     ];
     let vertex_buf = device.create_buffer_with_data(vertex_buffer_data.as_bytes(), BufferUsage::VERTEX);
 
-    let index_buffer_data = [0, 1, 2, 0, 2, 3];
+    let index_buffer_data: &[u16] = &[0, 1, 2, 0, 2, 3];
     let index_buf = device.create_buffer_with_data(index_buffer_data.as_bytes(), BufferUsage::INDEX);
 
     // Dynamic Per Instance Data
@@ -77,21 +109,20 @@ fn main() {
      *_1_3_666_
      *_________
      */
-
-    let quad_buffer_data = [
-        1.0, 1.0, 1.0, 3.0,
-        2.0, 2.0, 1.0, 1.0,
-        3.0, 1.0, 1.0, 3.0,
-        5.0, 1.0, 3.0, 1.0,
-        6.0, 2.0, 1.0, 1.0,
-        5.0, 3.0, 3.0, 1.0
+    let instance_buffer_data = [
+        Instance::new(1.0, 1.0, 1.0, 3.0, 1.0, 0.0, 0.0),
+        Instance::new(2.0, 2.0, 1.0, 1.0, 1.0, 1.0, 0.0),
+        Instance::new(3.0, 1.0, 1.0, 3.0, 0.0, 1.0, 0.0),
+        Instance::new(5.0, 1.0, 3.0, 1.0, 0.0, 1.0, 1.1),
+        Instance::new(6.0, 2.0, 1.0, 1.0, 0.0, 0.0, 1.0),
+        Instance::new(5.0, 3.0, 3.0, 1.0, 1.0, 0.0, 1.0)
     ];
-    let quad_buf = device.create_buffer_with_data(quad_buffer_data.as_bytes(), BufferUsage::VERTEX);
+    let instance_buf = device.create_buffer_with_data(instance_buffer_data.as_bytes(), BufferUsage::VERTEX);
 
     // Dynamic Per Frame Data
     let uniforms = Uniforms {
-        grid_dimensions: [20.0, 20.0],
-        font_size: [20.0, 20.0]
+        font_size: [20.0, 40.0],
+        window_size: [640.0, 480.0]
     };
     let uniform_size = mem::size_of::<Uniforms>() as BufferAddress;
     let uniform_buf = device.create_buffer_with_data(
@@ -160,26 +191,21 @@ fn main() {
         index_format: IndexFormat::Uint16,
         vertex_buffers: &[
             VertexBufferDescriptor {
-                stride: (
-                    /*Top Left Position*/2 + 
-                    /*Dimensions*/2
-                ) * /*Size of 32 Bit Float*/4,
-                step_mode: InputStepMode::Instance,
+                stride: mem::size_of::<Vertex>() as BufferAddress,
+                step_mode: InputStepMode::Vertex,
                 attributes: &vertex_attr_array![
-                    0 => Float2, // Top Left Position
-                    1 => Float2  // Dimensions
+                    0 => Float2 // Vertex Position
                 ]
             },
             VertexBufferDescriptor {
-                stride: 
-                    /*Vertex Position*/2 * 
-                    /*Size of 32 Bit Float*/ 4,
-                step_mode: InputStepMode::Vertex,
+                stride: mem::size_of::<Instance>() as BufferAddress,
+                step_mode: InputStepMode::Instance,
                 attributes: &vertex_attr_array![
-                    2 => Float2 // Vertex Position
+                    1 => Float2, // Top Left Position
+                    2 => Float2, // Dimensions
+                    3 => Float3  // Color
                 ]
-            }
-
+            },
         ],
         sample_count: 1,
         sample_mask: !0,
@@ -221,7 +247,12 @@ fn main() {
                     resolve_target: None,
                     load_op: LoadOp::Clear,
                     store_op: StoreOp::Store,
-                    clear_color: Color::GREEN,
+                    clear_color: Color {
+                        r: 0.39,
+                        g: 0.58,
+                        b: 0.93,
+                        a: 1.0
+                    },
                 }],
                 depth_stencil_attachment: None,
             });
@@ -229,8 +260,11 @@ fn main() {
             pass.set_bind_group(0, &bind_group, &[]);
             pass.set_index_buffer(&index_buf, 0);
             pass.set_vertex_buffers(0, &[(&vertex_buf, 0)]);
-            pass.set_vertex_buffers(1, &[(&quad_buf, 0)]);
-            pass.draw_indexed(0 .. 5, 0, 0 .. 3);
+
+
+
+            pass.set_vertex_buffers(1, &[(&instance_buf, 0)]);
+            pass.draw_indexed(0 .. 6, 0, 0 .. 6);
         }
 
         let (width, height) = window.drawable_size();
@@ -241,6 +275,6 @@ fn main() {
         //     &frame.view, width, 
         //     height);
 
-        // queue.submit(&[encoder.finish()]);
+        queue.submit(&[encoder.finish()]);
     }
 }
